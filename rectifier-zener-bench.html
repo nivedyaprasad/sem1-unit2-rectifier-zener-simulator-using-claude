@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bench // Rectifier &amp; Zener Regulator Design Tool</title>
+<style>
+  :root{
+    --bg: #12161c;
+    --panel: #1a1f27;
+    --panel-raised: #202631;
+    --line: #2c333f;
+    --text: #e7e6e1;
+    --dim: #8993a3;
+    --phosphor: #6fe3a8;
+    --phosphor-dim: #3d7d5f;
+    --amber: #e8a33d;
+    --amber-dim: #7a5b26;
+    --red: #e0685c;
+    --mono: 'Courier New', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap{ max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header{ margin-bottom: 22px; }
+  .brand{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .dot{ width:10px; height:10px; border-radius:50%; background: var(--phosphor); box-shadow: 0 0 8px var(--phosphor); flex-shrink:0; }
+  h1{ font-size: 21px; font-weight: 600; letter-spacing: 0.2px; margin:0; }
+  .sub{ color: var(--dim); font-size: 13.5px; margin-top: 6px; line-height:1.5; max-width: 640px; }
+
+  .tabs{ display:flex; gap:2px; margin: 22px 0 18px; border-bottom: 1px solid var(--line); }
+  .tab{
+    padding: 10px 18px; cursor:pointer; font-size: 13.5px; color: var(--dim);
+    border-bottom: 2px solid transparent; user-select:none;
+  }
+  .tab.active{ color: var(--text); border-bottom-color: var(--phosphor); }
+  .tab:hover:not(.active){ color: var(--text); }
+
+  .panel{ display:none; }
+  .panel.active{ display:block; }
+
+  .grid{ display:grid; grid-template-columns: 320px 1fr; gap: 18px; align-items:start; }
+  @media (max-width: 860px){ .grid{ grid-template-columns: 1fr; } }
+
+  .card{
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .card + .card{ margin-top: 14px; }
+  .card h2{ font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin: 0 0 14px; font-weight: 600; }
+
+  .field{ margin-bottom: 13px; }
+  .field label{ display:block; font-size: 12.5px; color: var(--dim); margin-bottom: 5px; }
+  .field input[type=number], .field select{
+    width: 100%; background: var(--panel-raised); border: 1px solid var(--line);
+    color: var(--text); padding: 8px 10px; border-radius: 5px; font-size: 14px;
+    font-family: var(--mono);
+  }
+  .field select{ font-family: var(--sans); }
+  .field input:focus, .field select:focus{ outline: none; border-color: var(--phosphor-dim); }
+  .row2{ display:grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .segbtns{ display:flex; gap:6px; flex-wrap:wrap; }
+  .segbtn{
+    flex:1; text-align:center; padding: 8px 6px; border-radius: 5px; font-size: 12.5px;
+    background: var(--panel-raised); border: 1px solid var(--line); color: var(--dim); cursor:pointer;
+    min-width: 90px;
+  }
+  .segbtn.on{ color: var(--bg); background: var(--phosphor); border-color: var(--phosphor); font-weight:600; }
+
+  .readout{
+    display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 1px;
+    background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow:hidden;
+  }
+  .cell{ background: var(--panel); padding: 14px 16px; }
+  .cell .k{ font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom:6px; }
+  .cell .v{ font-family: var(--mono); font-size: 20px; color: var(--phosphor); }
+  .cell .v.warn{ color: var(--amber); }
+  .cell .v.bad{ color: var(--red); }
+  .cell .u{ font-size: 12px; color: var(--dim); margin-left: 3px; }
+
+  .flag{
+    margin-top: 10px; padding: 10px 13px; border-radius: 6px; font-size: 12.5px; line-height:1.5;
+    border: 1px solid var(--amber-dim); background: rgba(232,163,61,0.08); color: var(--amber);
+  }
+  .flag.ok{ border-color: var(--phosphor-dim); background: rgba(111,227,168,0.08); color: var(--phosphor); }
+  .flag.bad{ border-color: #7a3730; background: rgba(224,104,92,0.08); color: var(--red); }
+
+  canvas{ width:100%; display:block; border-radius: 6px; background: #0d1015; }
+  .canvaslabel{ font-size:11.5px; color:var(--dim); margin: 10px 0 6px; display:flex; justify-content: space-between; }
+  .legend{ display:flex; gap:16px; font-size:11.5px; color:var(--dim); margin-top:8px; flex-wrap:wrap;}
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:14px; height:2px; display:inline-block; }
+
+  .note{ font-size: 12px; color: var(--dim); line-height:1.6; margin-top: 12px; }
+  .note code{ font-family: var(--mono); color: var(--text); }
+
+  .formula{ font-family: var(--mono); font-size: 12px; color: var(--dim); background: var(--panel-raised); padding: 8px 10px; border-radius: 5px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><span class="dot"></span><h1>Rectifier &amp; Zener Regulator Bench</h1></div>
+    <div class="sub">Design calculators for half-wave / full-wave rectifiers with capacitor filtering, and worst-case Zener voltage regulator design — matching the standard EPD Unit 1 &amp; 2 formulas.</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="rect">Rectifier &amp; Filter</div>
+    <div class="tab" data-tab="zener">Zener Regulator</div>
+  </div>
+
+  <!-- ===================== RECTIFIER PANEL ===================== -->
+  <div class="panel active" id="panel-rect">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Configuration</h2>
+          <div class="field">
+            <label>Rectifier Type</label>
+            <div class="segbtns">
+              <div class="segbtn on" data-group="rtype" data-val="hwr">Half-Wave</div>
+              <div class="segbtn" data-group="rtype" data-val="ct">Centre-Tap FWR</div>
+              <div class="segbtn" data-group="rtype" data-val="bridge">Bridge FWR</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Diode Model</label>
+            <div class="segbtns">
+              <div class="segbtn on" data-group="diode" data-val="ideal">Ideal</div>
+              <div class="segbtn" data-group="diode" data-val="real">Practical (Si, Vk)</div>
+            </div>
+          </div>
+          <div class="field" id="vkfield" style="display:none;">
+            <label>Diode Cut-in Voltage, Vk (V)</label>
+            <input type="number" id="vk" value="0.7" step="0.1">
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Source &amp; Load</h2>
+          <div class="row2">
+            <div class="field"><label>Peak Voltage, Vm (V)</label><input type="number" id="vm" value="20" step="0.1"></div>
+            <div class="field"><label>Frequency, f (Hz)</label><input type="number" id="freq" value="50" step="1"></div>
+          </div>
+          <div class="field"><label>Load Resistance, R<sub>L</sub> (Ω)</label><input type="number" id="rl" value="1000" step="1"></div>
+        </div>
+
+        <div class="card">
+          <h2>Shunt Capacitor Filter</h2>
+          <div class="field">
+            <div class="segbtns">
+              <div class="segbtn on" data-group="filt" data-val="off">No Filter</div>
+              <div class="segbtn" data-group="filt" data-val="on">With Capacitor</div>
+            </div>
+          </div>
+          <div class="field" id="cfield" style="display:none;">
+            <label>Filter Capacitance, C (µF)</label>
+            <input type="number" id="cap" value="100" step="1">
+          </div>
+          <div class="field" id="targetfield" style="display:none;">
+            <label>— or size C for a target ripple (%) —</label>
+            <input type="number" id="targetripple" placeholder="e.g. 5" step="0.1">
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>DC Output</h2>
+          <div class="readout" id="dcReadout"></div>
+        </div>
+        <div class="card">
+          <h2>Ripple &amp; Diode Stress</h2>
+          <div class="readout" id="rippleReadout"></div>
+          <div id="capSuggestFlag"></div>
+        </div>
+        <div class="card">
+          <h2>Waveform</h2>
+          <div class="canvaslabel"><span>Time (in periods, T)</span><span id="waveScale"></span></div>
+          <canvas id="waveCanvas" height="260"></canvas>
+          <div class="legend">
+            <span><i style="background:#4a5568"></i> Input v<sub>i</sub></span>
+            <span><i style="background:#e8a33d"></i> Rectified v<sub>o</sub> (unfiltered)</span>
+            <span><i style="background:#6fe3a8"></i> Filtered output (with C)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ZENER PANEL ===================== -->
+  <div class="panel" id="panel-zener">
+    <div class="grid">
+      <div>
+        <div class="card">
+          <h2>Design Case</h2>
+          <div class="field">
+            <select id="zmode">
+              <option value="1">1 — Fixed Vi, Fixed R, Fixed RL</option>
+              <option value="2">2 — Fixed Vi, Fixed R, Variable RL</option>
+              <option value="3">3 — Fixed RL, Fixed R, Variable Vi</option>
+              <option value="4">4 — Variable Vi, Variable RL (solve for R)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Zener Diode Ratings</h2>
+          <div class="row2">
+            <div class="field"><label>Zener Voltage, Vz (V)</label><input type="number" id="vz" value="10" step="0.1"></div>
+            <div class="field"><label>I<sub>Zmin</sub> (mA)</label><input type="number" id="izmin" value="2" step="0.1"></div>
+          </div>
+          <div class="field"><label>Max Power Rating, P<sub>ZM</sub> (mW)</label><input type="number" id="pzm" value="400" step="1"></div>
+        </div>
+
+        <div class="card" id="zsource">
+          <h2>Series Resistor &amp; Source</h2>
+          <div id="z_R_field" class="field"><label>Series Resistor, R (Ω)</label><input type="number" id="z_R" value="220" step="1"></div>
+          <div id="z_Vi_fixed" class="field"><label>Supply Voltage, Vi (V)</label><input type="number" id="z_Vi" value="20" step="0.1"></div>
+          <div id="z_Vi_range" class="row2" style="display:none;">
+            <div class="field"><label>Vi min (V)</label><input type="number" id="z_Vimin" value="18" step="0.1"></div>
+            <div class="field"><label>Vi max (V)</label><input type="number" id="z_Vimax" value="22" step="0.1"></div>
+          </div>
+        </div>
+
+        <div class="card" id="zload">
+          <h2>Load</h2>
+          <div id="z_RL_fixed" class="field"><label>Load Resistance, R<sub>L</sub> (Ω)</label><input type="number" id="z_RL" value="1200" step="1"></div>
+          <div id="z_RL_range" class="row2" style="display:none;">
+            <div class="field"><label>R<sub>L</sub> min (Ω)</label><input type="number" id="z_RLmin" value="500" step="1"></div>
+            <div class="field"><label>R<sub>L</sub> max (Ω)</label><input type="number" id="z_RLmax" value="2000" step="1"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Result</h2>
+          <div class="readout" id="zReadout"></div>
+          <div id="zFlag"></div>
+          <div class="formula" id="zFormula"></div>
+        </div>
+        <div class="card">
+          <h2>Circuit</h2>
+          <canvas id="zCanvas" height="230"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ---------- shared helpers ----------
+function fmt(x, d=3){
+  if(x===null || x===undefined || Number.isNaN(x) || !isFinite(x)) return '—';
+  if(Math.abs(x) >= 1000) return x.toFixed(0);
+  if(Math.abs(x) >= 10) return x.toFixed(2);
+  return x.toFixed(d);
+}
+function cell(k, v, u, cls){
+  return `<div class="cell"><div class="k">${k}</div><div class="v ${cls||''}">${v}<span class="u">${u||''}</span></div></div>`;
+}
+function segGroup(container){
+  container.querySelectorAll('.segbtn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const group = btn.dataset.group;
+      document.querySelectorAll(`.segbtn[data-group="${group}"]`).forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      onInputChange();
+    });
+  });
+}
+function segVal(group){
+  const el = document.querySelector(`.segbtn.on[data-group="${group}"]`);
+  return el ? el.dataset.val : null;
+}
+
+// tabs
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('active');
+  });
+});
+
+segGroup(document);
+
+// ---------- RECTIFIER LOGIC ----------
+const vkfield = document.getElementById('vkfield');
+const cfield = document.getElementById('cfield');
+const targetfield = document.getElementById('targetfield');
+
+function updateVisibility(){
+  vkfield.style.display = segVal('diode')==='real' ? 'block' : 'none';
+  const filtOn = segVal('filt')==='on';
+  cfield.style.display = filtOn ? 'block' : 'none';
+  targetfield.style.display = filtOn ? 'block' : 'none';
+}
+
+['vm','freq','rl','vk','cap','targetripple'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', onInputChange);
+});
+
+function computeRectifier(){
+  const type = segVal('rtype');       // hwr, ct, bridge
+  const diode = segVal('diode');      // ideal, real
+  const filt = segVal('filt');        // off, on
+
+  const Vm = parseFloat(document.getElementById('vm').value)||0;
+  const f  = parseFloat(document.getElementById('freq').value)||50;
+  const RL = parseFloat(document.getElementById('rl').value)||1;
+  const Vk = diode==='real' ? (parseFloat(document.getElementById('vk').value)||0.7) : 0;
+
+  let effVm; // effective peak after diode drop(s), used in Vdc/Vrms formulas
+  let PIV;
+  let isFullWave = (type==='ct' || type==='bridge');
+
+  if(type==='hwr'){
+    effVm = Vm - Vk;
+    PIV = Vm - (diode==='real' ? 0 : 0); // PIV = Vm for both (from slide table)
+    PIV = Vm;
+  } else if(type==='ct'){
+    effVm = diode==='real' ? (Vm - Vk) : Vm;
+    PIV = diode==='real' ? (2*Vm - Vk) : (2*Vm);
+  } else { // bridge
+    effVm = diode==='real' ? (Vm - 2*Vk) : Vm;
+    PIV = diode==='real' ? (Vm - Vk) : Vm;
+  }
+  effVm = Math.max(effVm, 0);
+
+  let Vdc, Vrms, ripple_noFilter;
+  if(!isFullWave){
+    Vdc = effVm/Math.PI;
+    Vrms = effVm/2;
+    ripple_noFilter = 1.21;
+  } else {
+    Vdc = 2*effVm/Math.PI;
+    Vrms = effVm/Math.SQRT2;
+    ripple_noFilter = 0.48;
+  }
+  const Idc = Vdc/RL;      // mA if RL in ohms & Vdc in V -> A; we'll display mA
+  const Irms = Vrms/RL;
+
+  // capacitor filter
+  let filtered = null;
+  if(filt==='on'){
+    let C = parseFloat(document.getElementById('cap').value); // uF
+    const targetPct = parseFloat(document.getElementById('targetripple').value);
+    const k = isFullWave ? 4 : 2; // ripple = 1/(k*sqrt3*f*C*RL)
+    let suggestedC = null;
+    if(!Number.isNaN(targetPct) && targetPct>0){
+      const gammaTarget = targetPct/100;
+      suggestedC = 1/(k*Math.sqrt(3)*f*gammaTarget*RL) * 1e6; // in uF
+    }
+    if(Number.isNaN(C) || C<=0) C = suggestedC || 100;
+    const C_F = C*1e-6;
+    const VdcF = effVm / (1 + 1/(k*f*C_F*RL));
+    const rippleF = 1/(k*Math.sqrt(3)*f*C_F*RL);
+    const IdcF = VdcF/RL;
+    filtered = {C, suggestedC, VdcF, rippleF, IdcF};
+  }
+
+  return {type, diode, filt, Vm, f, RL, Vk, effVm, PIV, Vdc, Vrms, Idc, Irms, ripple_noFilter, isFullWave, filtered};
+}
+
+function renderRectifier(){
+  updateVisibility();
+  const r = computeRectifier();
+
+  const dcHtml = [
+    cell('V<sub>dc</sub> (no filter)', fmt(r.Vdc), 'V'),
+    cell('V<sub>rms</sub>', fmt(r.Vrms), 'V'),
+    cell('I<sub>dc</sub>', fmt(r.Idc*1000), 'mA'),
+    cell('I<sub>rms</sub>', fmt(r.Irms*1000), 'mA'),
+    cell('PIV rating', fmt(r.PIV), 'V'),
+    r.filtered ? cell('V<sub>dc</sub> (filtered)', fmt(r.filtered.VdcF), 'V') : ''
+  ].join('');
+  document.getElementById('dcReadout').innerHTML = dcHtml;
+
+  let rippleHtml = cell('Ripple factor (no filter)', fmt(r.ripple_noFilter), '', r.ripple_noFilter>0.1?'warn':'');
+  if(r.filtered){
+    rippleHtml += cell('Ripple factor (filtered)', fmt(r.filtered.rippleF,4), '', r.filtered.rippleF>0.1?'warn':'');
+    rippleHtml += cell('Capacitor used', fmt(r.filtered.C), 'µF');
+  }
+  document.getElementById('rippleReadout').innerHTML = rippleHtml;
+
+  const flagBox = document.getElementById('capSuggestFlag');
+  if(r.filtered && r.filtered.suggestedC){
+    flagBox.innerHTML = `<div class="flag ok">To hit a ripple of the target you entered, the required capacitance is <b>C ≥ ${fmt(r.filtered.suggestedC)} µF</b>. ${document.getElementById('cap').value ? '' : 'This value has been used above.'}</div>`;
+  } else {
+    flagBox.innerHTML = '';
+  }
+
+  drawWave(r);
+}
+
+function drawWave(r){
+  const canvas = document.getElementById('waveCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 700;
+  const h = 260;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+
+  const periods = 2;
+  const N = 600;
+  const midY = h*0.55;
+  const scaleY = (h*0.4) / (r.Vm || 1);
+  const marginX = 10;
+  const plotW = w - marginX*2;
+
+  function xAt(i){ return marginX + (i/(N-1))*plotW; }
+
+  // axis
+  ctx.strokeStyle = '#2c333f';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(marginX, midY); ctx.lineTo(w-marginX, midY); ctx.stroke();
+
+  // input sine
+  ctx.beginPath();
+  for(let i=0;i<N;i++){
+    const t = (i/(N-1))*periods; // in periods
+    const vi = r.Vm*Math.sin(2*Math.PI*t);
+    const y = midY - vi*scaleY;
+    const x = xAt(i);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = '#4a5568';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // rectified unfiltered
+  function rectifiedAt(t){
+    const vi = r.Vm*Math.sin(2*Math.PI*t);
+    if(!r.isFullWave){
+      const v = vi - r.Vk;
+      return v>0 ? v : 0;
+    } else {
+      const dropTotal = r.diode==='real' ? (r.type==='ct'?r.Vk:2*r.Vk) : 0;
+      const v = Math.abs(vi) - dropTotal;
+      return v>0 ? v : 0;
+    }
+  }
+  ctx.beginPath();
+  for(let i=0;i<N;i++){
+    const t = (i/(N-1))*periods;
+    const vo = rectifiedAt(t);
+    const y = midY - vo*scaleY;
+    const x = xAt(i);
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.strokeStyle = '#e8a33d';
+  ctx.lineWidth = 1.8;
+  ctx.stroke();
+
+  // filtered (simple charge/discharge sim)
+  if(r.filtered){
+    const C = r.filtered.C*1e-6;
+    const RL = r.RL;
+    const dt = periods/(r.f>0?(N-1)/(periods* r.f)*r.f:N-1); // seconds per step approx
+    const totalTime = periods/r.f;
+    const stepDt = totalTime/(N-1);
+    let vc = 0;
+    const pts = [];
+    for(let i=0;i<N;i++){
+      const t = i*stepDt;
+      const vin = rectifiedAt(t*r.f);
+      if(vin > vc){ vc = vin; }
+      else { vc -= (vc/(RL*C))*stepDt; if(vc<0) vc=0; }
+      pts.push(vc);
+    }
+    ctx.beginPath();
+    for(let i=0;i<N;i++){
+      const y = midY - pts[i]*scaleY;
+      const x = xAt(i);
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle = '#6fe3a8';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  document.getElementById('waveScale').textContent = `f = ${r.f} Hz`;
+}
+
+function onInputChange(){ renderRectifier(); }
+window.addEventListener('resize', ()=>renderRectifier());
+
+// ---------- ZENER LOGIC ----------
+const zmode = document.getElementById('zmode');
+const z_Vi_fixed = document.getElementById('z_Vi_fixed');
+const z_Vi_range = document.getElementById('z_Vi_range');
+const z_RL_fixed = document.getElementById('z_RL_fixed');
+const z_RL_range = document.getElementById('z_RL_range');
+const z_R_field = document.getElementById('z_R_field');
+
+function updateZenerVisibility(){
+  const m = zmode.value;
+  z_Vi_fixed.style.display = (m==='1'||m==='2') ? 'block' : 'none';
+  z_Vi_range.style.display = (m==='3'||m==='4') ? 'grid' : 'none';
+  z_RL_fixed.style.display = (m==='1'||m==='3') ? 'block' : 'none';
+  z_RL_range.style.display = (m==='2'||m==='4') ? 'grid' : 'none';
+  z_R_field.style.display = (m==='4') ? 'none' : 'block';
+}
+
+['zmode','vz','izmin','pzm','z_R','z_Vi','z_Vimin','z_Vimax','z_RL','z_RLmin','z_RLmax'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderZener);
+  document.getElementById(id).addEventListener('change', renderZener);
+});
+
+function renderZener(){
+  updateZenerVisibility();
+  const m = zmode.value;
+  const Vz = parseFloat(document.getElementById('vz').value)||0;
+  const Izmin = parseFloat(document.getElementById('izmin').value)||0; // mA
+  const Pzm = parseFloat(document.getElementById('pzm').value)||0;     // mW
+  const Izmax = Vz>0 ? Pzm/Vz : 0; // mA
+
+  const readout = document.getElementById('zReadout');
+  const flag = document.getElementById('zFlag');
+  const formula = document.getElementById('zFormula');
+  let html = '';
+  let flagHtml = '';
+  let formulaText = '';
+
+  if(m==='1'){
+    const R = parseFloat(document.getElementById('z_R').value)||1;
+    const Vi = parseFloat(document.getElementById('z_Vi').value)||0;
+    const RL = parseFloat(document.getElementById('z_RL').value)||1;
+    const Vopen = Vi*RL/(R+RL);
+    let VL, IL, IR, IZ, PZ, state;
+    if(Vopen >= Vz){
+      state = 'ON';
+      VL = Vz;
+      IL = VL/RL*1000; // mA
+      IR = (Vi-Vz)/R*1000; // mA
+      IZ = IR - IL;
+      PZ = Vz*IZ; // mW
+    } else {
+      state = 'OFF';
+      VL = Vopen; IL = Vopen/RL*1000; IR = IL; IZ = 0; PZ = 0;
+    }
+    html = [
+      cell('Zener State', state, '', state==='ON'?'':'warn'),
+      cell('Open-circuit V', fmt(Vopen), 'V'),
+      cell('Load Voltage, V<sub>L</sub>', fmt(VL), 'V'),
+      cell('I<sub>L</sub>', fmt(IL), 'mA'),
+      cell('I<sub>R</sub>', fmt(IR), 'mA'),
+      cell('I<sub>Z</sub>', fmt(IZ), 'mA', (IZ<Izmin||IZ>Izmax)?'bad':''),
+      cell('P<sub>Z</sub>', fmt(PZ), 'mW', PZ>Pzm?'bad':'')
+    ].join('');
+    if(state==='ON'){
+      if(IZ < Izmin) flagHtml = `<div class="flag bad">I<sub>Z</sub> = ${fmt(IZ)} mA is below I<sub>Zmin</sub> — regulation is not guaranteed.</div>`;
+      else if(IZ > Izmax) flagHtml = `<div class="flag bad">I<sub>Z</sub> = ${fmt(IZ)} mA exceeds I<sub>Zmax</sub> (${fmt(Izmax)} mA) — diode may be damaged.</div>`;
+      else flagHtml = `<div class="flag ok">I<sub>Z</sub> is within [${fmt(Izmin)}, ${fmt(Izmax)}] mA — regulator is correctly designed.</div>`;
+    } else {
+      flagHtml = `<div class="flag">Open-circuit voltage (${fmt(Vopen)} V) is below V<sub>Z</sub> — the Zener never breaks down; output simply follows the resistive divider.</div>`;
+    }
+    formulaText = `V = RL·Vi/(R+RL);  if V ≥ Vz → ON: VL=Vz, IL=Vz/RL, IR=(Vi−Vz)/R, IZ=IR−IL`;
+
+  } else if(m==='2'){
+    const R = parseFloat(document.getElementById('z_R').value)||1;
+    const Vi = parseFloat(document.getElementById('z_Vi').value)||0;
+    const IR = (Vi-Vz)/R*1000; // mA
+    const ILmax = IR - Izmin;
+    const ILmin = IR - Izmax;
+    const RLmin = ILmax>0 ? Vz/(ILmax/1000) : NaN;
+    const RLmax = ILmin>0 ? Vz/(ILmin/1000) : Infinity;
+    html = [
+      cell('I<sub>R</sub> (fixed)', fmt(IR), 'mA'),
+      cell('I<sub>Zmax</sub>', fmt(Izmax), 'mA'),
+      cell('R<sub>L,min</sub>', fmt(RLmin), 'Ω'),
+      cell('R<sub>L,max</sub>', isFinite(RLmax)?fmt(RLmax):'∞', 'Ω')
+    ].join('');
+    flagHtml = (RLmin>0 && RLmin<RLmax)
+      ? `<div class="flag ok">Load must stay within <b>${fmt(RLmin)} Ω ≤ R<sub>L</sub> ≤ ${isFinite(RLmax)?fmt(RLmax)+' Ω':'∞'}</b> to keep the Zener regulating.</div>`
+      : `<div class="flag bad">Ir is too small for Izmin — increase Vi or decrease R.</div>`;
+    formulaText = `IR=(Vi−Vz)/R;  ILmax=IR−Izmin → RLmin=Vz/ILmax;   ILmin=IR−Izmax → RLmax=Vz/ILmin`;
+
+  } else if(m==='3'){
+    const R = parseFloat(document.getElementById('z_R').value)||1;
+    const RL = parseFloat(document.getElementById('z_RL').value)||1;
+    const IL = Vz/RL*1000; // mA
+    const IRmin = Izmin + IL;
+    const IRmax = Izmax + IL;
+    const Vimin = Vz + (IRmin/1000)*R;
+    const Vimax = Vz + (IRmax/1000)*R;
+    html = [
+      cell('I<sub>L</sub> (fixed)', fmt(IL), 'mA'),
+      cell('V<sub>i,min</sub>', fmt(Vimin), 'V'),
+      cell('V<sub>i,max</sub>', fmt(Vimax), 'V')
+    ].join('');
+    flagHtml = `<div class="flag ok">Supply must stay within <b>${fmt(Vimin)} V ≤ V<sub>i</sub> ≤ ${fmt(Vimax)} V</b> for the Zener to remain in regulation.</div>`;
+    formulaText = `IL=Vz/RL;  Vimin=Vz+(Izmin+IL)·R;   Vimax=Vz+(Izmax+IL)·R`;
+
+  } else if(m==='4'){
+    const Vimin = parseFloat(document.getElementById('z_Vimin').value)||0;
+    const Vimax = parseFloat(document.getElementById('z_Vimax').value)||0;
+    const RLmin = parseFloat(document.getElementById('z_RLmin').value)||1;
+    const RLmax = parseFloat(document.getElementById('z_RLmax').value)||1;
+    const ILmax = Vz/RLmin*1000; // mA — worst case: RL minimum -> max load current
+    const ILmin = Vz/RLmax*1000; // mA — RL maximum -> min load current
+    const Rmax = (Vimin - Vz)/((Izmin + ILmax)/1000);
+    const Rmin = (Vimax - Vz)/((Izmax + ILmin)/1000);
+    html = [
+      cell('I<sub>L,max</sub>', fmt(ILmax), 'mA'),
+      cell('I<sub>L,min</sub>', fmt(ILmin), 'mA'),
+      cell('R<sub>min</sub>', fmt(Rmin), 'Ω'),
+      cell('R<sub>max</sub>', fmt(Rmax), 'Ω')
+    ].join('');
+    flagHtml = (Rmin <= Rmax)
+      ? `<div class="flag ok">Choose the series resistor within <b>${fmt(Rmin)} Ω ≤ R ≤ ${fmt(Rmax)} Ω</b> to satisfy both the supply and load variation.</div>`
+      : `<div class="flag bad">No single R satisfies both extremes — the Zener/design spread is infeasible as entered. Loosen the Vi or RL range, or pick a Zener with higher IZM.</div>`;
+    formulaText = `Rmax=(Vimin−Vz)/(Izmin+ILmax);   Rmin=(Vimax−Vz)/(Izmax+ILmin)`;
+  }
+
+  readout.innerHTML = html;
+  flag.innerHTML = flagHtml;
+  formula.textContent = formulaText;
+  drawZenerCircuit(m);
+}
+
+function drawZenerCircuit(mode){
+  const canvas = document.getElementById('zCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth || 500;
+  const h = 230;
+  canvas.width = w*dpr; canvas.height = h*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle = '#5a6474';
+  ctx.fillStyle = '#8993a3';
+  ctx.lineWidth = 1.6;
+  ctx.font = '12px monospace';
+
+  const x0 = 50, x1 = w*0.45, x2 = w-60;
+  const yTop = 50, yBot = h-40;
+
+  // top wire with resistor
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop); ctx.lineTo(x0+20, yTop);
+  // resistor zigzag
+  let rx = x0+20;
+  const rw = 50;
+  ctx.moveTo(rx, yTop);
+  for(let i=0;i<6;i++){
+    ctx.lineTo(rx + rw*(i+1)/6, yTop + (i%2===0? -8:8));
+  }
+  ctx.lineTo(rx+rw+10, yTop);
+  ctx.lineTo(x1, yTop);
+  ctx.lineTo(x2, yTop);
+  ctx.stroke();
+  ctx.fillText('R', x0+35, yTop-14);
+
+  // left battery
+  ctx.beginPath();
+  ctx.moveTo(x0, yTop); ctx.lineTo(x0, yBot);
+  ctx.stroke();
+  ctx.fillText(mode==='3'||mode==='4' ? 'Vi (range)' : 'Vi', 6, (yTop+yBot)/2);
+
+  // bottom wire
+  ctx.beginPath();
+  ctx.moveTo(x0, yBot); ctx.lineTo(x2, yBot);
+  ctx.stroke();
+
+  // zener branch (middle)
+  ctx.beginPath();
+  ctx.moveTo(x1, yTop); ctx.lineTo(x1, yTop+40);
+  ctx.stroke();
+  // zener symbol
+  ctx.beginPath();
+  ctx.moveTo(x1-10, yTop+40); ctx.lineTo(x1+10, yTop+40); ctx.lineTo(x1, yTop+60); ctx.closePath();
+  ctx.fillStyle = '#232a35'; ctx.fill(); ctx.strokeStyle='#6fe3a8'; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1-10, yTop+60); ctx.lineTo(x1+10, yTop+60);
+  ctx.moveTo(x1-6, yTop+60); ctx.lineTo(x1-10,yTop+65);
+  ctx.strokeStyle='#6fe3a8';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x1, yTop+65); ctx.lineTo(x1, yBot);
+  ctx.strokeStyle = '#5a6474';
+  ctx.stroke();
+  ctx.fillStyle = '#6fe3a8';
+  ctx.fillText('Vz', x1+14, yTop+55);
+
+  // load branch (right)
+  ctx.beginPath();
+  ctx.moveTo(x2, yTop); ctx.lineTo(x2, yBot);
+  ctx.strokeStyle = '#5a6474';
+  ctx.stroke();
+  ctx.fillText(mode==='2'||mode==='4' ? 'RL (range)' : 'RL', x2-30, (yTop+yBot)/2 - 30);
+  // resistor zigzag vertical for RL
+  const ry0 = (yTop+yBot)/2 - 20;
+  ctx.beginPath();
+  for(let i=0;i<6;i++){
+    ctx.lineTo(x2 + (i%2===0? -6:6), ry0 + 40*(i+1)/6);
+  }
+  ctx.stroke();
+}
+
+zmode.addEventListener('change', renderZener);
+
+// init
+updateVisibility();
+renderRectifier();
+updateZenerVisibility();
+renderZener();
+</script>
+</body>
+</html>
